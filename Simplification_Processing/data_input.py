@@ -47,7 +47,7 @@ def save_idx(idxs, storage, filename):
 
 def save_data_structure(data, filename='data.pkl'):
     """
-    将数据结构保存到本地文件中。
+    save the connectivity configurations
     :param data: 要保存的数据结构。
     :param filename: 保存的文件名，默认为'data.pkl'。
     """

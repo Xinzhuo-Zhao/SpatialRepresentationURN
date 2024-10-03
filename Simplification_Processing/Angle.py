@@ -7,7 +7,7 @@ from math import pi
 
 def roundness(s):
     '''
-    圆度
+    roundness or circularity
     :param s: s should be the list of
     :return:
     '''
@@ -19,12 +19,17 @@ def roundness(s):
 def AngleCal(l1, l2):
     v1 = np.array([l1.xy[0][0] - l1.xy[0][-1], l1.xy[1][0] - l1.xy[1][-1]])
     v2 = np.array([l2.xy[0][0] - l2.xy[0][-1], l2.xy[1][0] - l2.xy[1][-1]])
-    # angle = np.dot(v1, v2) / (norm(v1, ord=2, axis=0) * norm(v2, ord=2, axis=0))
     angle = (v1[0] * v2[0] + v1[1] * v2[1]) / (norm(v1, ord=2, axis=0) * norm(v2, ord=2, axis=0))
     return angle
 
 def AngleCal_turning(l1, l2, intersctpt):
-    # 保证角度计算是从交点出发
+    '''
+    geom of intersection with geoms of relevant links
+    :param l1:
+    :param l2:
+    :param intersctpt:
+    :return:
+    '''
     t1 = [Point(l1.xy[0][0], l1.xy[1][0]),
           Point(l1.xy[0][-1], l1.xy[1][-1])]
     t2 = [Point(l2.xy[0][0], l2.xy[1][0]),

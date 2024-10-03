@@ -137,7 +137,7 @@ class GraphBuilder:
                         self.links[relate_li].add(relate_nd)
                 self.node[relate_nd].remove(l)
                 if l in self.node[relate_nd]:
-                    raise ValueError("未知错误：未找到继承关系线")
+                    raise ValueError("unfound related links")
             self.links.pop(l)
     
     def run_linesimplification(self, link_id):
@@ -158,44 +158,43 @@ class GraphBuilder:
             current_node = spt_node[nd_idx]
             current_nidx = len(self.node_storage)
             if nd_idx == 0 or nd_idx == len(spt_node) - 1:
-                #   说明这是开始点和终止点
-                #   说明原图中已经有对应点了
+                #   nd_idx is the start or end pt within a line
+                #   There are already corresponding points in the original graph
                 if len(li_set) != 1:
                     raise ValueError('未知错误：端点有多条线')
                 li = list(li_set)[0]
                 for nd in related_nd:
                     #   nd is the index of self.node_storage
                     if current_node.distance(self.node_storage[nd]) < 1:
-                        #   说明currentnode和原node是同一个点
+                        #   the current node and the original node are the same point
                         if li not in dup_record:
-                            #   li第一次被遍历到
+                            #   li is traversed for the first time
                             current_lidx = len(self.link_storage)
                             dup_record[li] = current_lidx
                             self.links[current_lidx] = {nd}
                             self.node[nd].add(current_lidx)
                             self.link_storage.append(spt_list[li])
                         else:
-                            #   li已经被遍历过了
+                            #   li was traversed before
                             current_lidx = dup_record[li]
                             self.links[current_lidx].add(nd)
                             self.node[nd].add(current_lidx)
                         break
             else:
-                #   说明是中间点
-                #   说明是新点
+                #   this is the intermediate and new established pt
                 self.node[current_nidx] = set()
                 self.node_storage.append(current_node)
                 for li in li_set:
                     #   li is the index of spt_list
                     if li not in dup_record:
-                        #   li第一次被遍历到
+                        #   li is traversed for the first time
                         current_lidx = len(self.link_storage)
                         dup_record[li] = current_lidx
                         self.links[current_lidx] = {current_nidx}
                         self.node[current_nidx].add(current_lidx)
                         self.link_storage.append(spt_list[li])
                     else:
-                        #   li已经被遍历过了
+                        #   li was traversed before
                         current_lidx = dup_record[li]
                         self.links[current_lidx].add(current_nidx)
                         self.node[current_nidx].add(current_lidx)
@@ -219,69 +218,38 @@ class GraphBuilder:
                         self.node[n].discard(l)
                         self.node[n].add(idx)
                     self.links[l] = None
-                    # self.links.pop(l)
                 self.links[idx] = new_node
                 self.node[n_idx] = None
-                # self.node.pop(n_idx)
                 self.node_storage[n_idx] = None
 
     def run_remove_anomalous_shortlinks(self, l_idx, n_set, length_limits=50):
         if self.link_storage[l_idx].length < length_limits:
-            # meanlength = 0
-            # count = 0
             depth1, depth_end1 = self.Line_forward_Line(l_idx)
             depth2, _ = self.Line_forward_Line(depth1, depth_end1)
             related_li = depth2 + depth1
             length_record = list()
             for li_geo_idx in related_li:
                 length_record.append(self.link_storage[li_geo_idx].length)
-            # if l_idx == 344749:
-            #     print(related_li)
-            #     print(length_record)
             if len(length_record) == 0:
-                #   经过修改后l_idx成孤立线段了：
-                # del_links([l_idx])
-                # #   同时你n_set也都是无效的
-                # for n_id in n_set:
-                #     if len(self.node[n_id]) == 0:
-                #         self.node.pop(n_id)
-                #         self.node_storage[n_id] = None
                 return
             q1, q3 = np.percentile(length_record, [33, 75])
             meanlength = np.mean(length_record)
-            midlength = np.median(length_record)
-            # for i in n:
-            #     for j in self.node[i]:
-            #         if j != l:
-            #             meanlength += self.link_storage[j].length
-            #             count += 1
-            # meanlength = meanlength / count
             if (meanlength / self.link_storage[l_idx].length > 4) and (self.link_storage[l_idx].length < q1):
-                # 过短的奇异线条删除：
-                # 包括线条的storage替换成None，线条目录删除，对应node修改
-                # node修改：
-                # 该线条连接的node，坍缩成一个点，同时返回修改对应的线条
-                # 新的点继承原来点的链接线条
-                # 相关线条修改:
-                # 从被修改的点返回修改被改动的线
-                # 1连接的点idx被修改成新的
-                # 2对线的断点进行延伸
+                #   abnormal too short link identification and aggregation.
                 pt_idx = len(self.node_storage)
-                # 建立新节点为中心点
+                #   aggregating at their centroid
                 new_pt = midPt(self.link_storage[l_idx])
                 self.node_storage.append(new_pt)
                 new_node = set()
-                # 继承原有线段两个端点的连接线段关系
                 for i in n_set:
                     self.node[i].discard(l_idx)
                     new_node = new_node.union(self.node[i])
-                    # self.node[i] = None
                     self.node.pop(i)
                     self.node_storage[i] = None
                 self.node[pt_idx] = new_node
-                # 对连接的所有线段进行修改
+                # modify relevant links
                 for fixline in new_node:
-                    # 几何关系修改
+                    # geometric information update
                     l1 = self.link_storage[fixline]
                     if l1.length == 0:
                         self.link_storage[fixline] = None
@@ -334,11 +302,10 @@ class GraphBuilder:
                             l1_list[0] = Point(ept_vec[0], ept_vec[1])
                             l1_list.insert(0, new_pt)
                     self.link_storage[fixline] = LineString(l1_list)
-                    # 连接关系修改
+                    #   Graph connectivity update
                     self.links[fixline] = self.links[fixline] - n_set
                     self.links[fixline].add(pt_idx)
                 self.links[l_idx] = None
-                # self.links.pop(l)
                 self.link_storage[l_idx] = None
 
     def run_IdentifyParrallelCrossing(self, n_idx, n_set):
@@ -383,8 +350,6 @@ class GraphBuilder:
         li_set = self.merging_storage[storage_id].copy()
         pts_status, brk_pts = self.check_breaknd(li_set)
         if len(brk_pts) == 0:
-            #   不一定闭合，但是没有可以往外延伸的点了
-            #   例如位于边缘的link也没有闭合，但是也不具备bkps
             return
         while brk_pts:
             n = brk_pts.pop()
@@ -392,31 +357,28 @@ class GraphBuilder:
                 continue
 
             path_list, pts_status, brk_pts = self.explore_roads(n, pts_status, brk_end=brk_pts)
-            #   status表示是否寻找到其他merging_dict的组，如果有则更新status 并更新需要找的pts_status和brk_pts
+            #   Status indicates whether other merging groups have been found.
+            #   If so, update the status and update the pts_status and brk_pts that need to be found
             status = 0
 
-            if len(path_list):  # 如果有符合要求的路径被找到了
-                #   开始找路径上的所有线段并对merging_dict和merging_storage进行更新
+            if len(path_list):  #   if any cycle is identified
+                #   update cycles into  merging dict and merging storage
                 for path in path_list:
-                    #   获得节点之间的link
                     newlinks = self.nodeseq_to_linkseq(path)
                     li_set = li_set.union(newlinks)
-                    # print(li_set)
-                    #   获取所有path相关的merging_storage内容
                     for i in newlinks:
                         if i in self.merging_dict:
-                            #   找到之前被记录的其他组
+                            #   this cycle is twisted with other cycles
                             status = 1
                             li_set = self.merging_storage[self.merging_dict[i]].union(li_set)
-                    #   更新node_storage
                     self.merging_storage[storage_id] = li_set
                     for i in li_set:
                         #   对于新更新进来的线段
                         if i not in self.merging_dict:
-                            #   说明i是新找到的link
+                            #   i is a new founded link in cycles
                             self.merging_dict[i] = storage_id
                         elif self.merging_dict[i] != storage_id:
-                            #   说明找到的是其他组内的link
+                            #   i is also part of other cycles
                             self.merging_storage[self.merging_dict[i]] = None
                             self.merging_dict[i] = storage_id
             if status:
@@ -435,7 +397,7 @@ class GraphBuilder:
             sub_l, sub_n = self.pre_cycle_modification(testing_g)
             sub_node_graph = self.node_graph_construction(sub_n, sub_l)
             node_manage = self.nodetype_in_sub(sub_n, self.node)
-            if len(sub_n) < 2:  # 不构成回路
+            if len(sub_n) < 2:  # no cycle found
                 continue
             n_idx = self.select_best_initial_junction(sub_n)
             cycle_list = self.find_cycles(n_idx, sub_node_graph, sub_n)
@@ -473,9 +435,8 @@ class GraphBuilder:
     def Identify_MergingDifference(self, prev_merging_dict, prev_merging_stg, merging_d, merging_stg):
         for i in merging_d.keys():
             if i in prev_merging_dict:
-                #   说明之前这个点已经被辨识过
                 if prev_merging_stg[prev_merging_dict[i]] != merging_stg[merging_d[i]]:
-                    #   说明需要进一步合并
+                    #   need more aggregation
                     return True
             else:
                 return True
@@ -556,14 +517,14 @@ class GraphBuilder:
         return crossing_management, pt_idx
 
     def intersection_of_pt(self, intersectionPT, crossing_management, pt_idx, o, d):
-        new_pt = 1  # 默认找到的新的点位是(new_pt = 1)
+        new_pt = 1  # default the intersection pt is a new pt(new_pt = 1)
         for i in range(len(self.node_storage)):
             if self.node_storage[i].distance(intersectionPT) < 1:
                 intersectionPT = self.node_storage[i]
                 pt_idx[1] = i
                 new_pt = 0
                 break
-        #   检测相交点是在线端点还是中间
+        #   check the new pt locate at end of link or mid of link
         if new_pt == 0:
             self.node[pt_idx[1]].add(o)
             self.node[pt_idx[1]].add(d)
@@ -579,7 +540,6 @@ class GraphBuilder:
                     crossing_management[d].add(pt_idx[1])
                 else:
                     crossing_management[d] = {pt_idx[1]}
-            # new_pt = 1
         else:
             if pt_idx[0] not in self.node.keys():
                 self.node[pt_idx[0]] = set()
@@ -613,24 +573,18 @@ class GraphBuilder:
         cross_status = deepcopy(cross_status)
 
         end_positions = set(cross_status.keys()).difference(set(brk_end))
-        # 定义一个队列，用于存储遍历的节点
         queue = Queue()
-        # 将起点加入队列中
         queue.Que_in(startnd)
 
-        # 定义一个字典，用于记录每个节点的前一个节点，最终用于查找最短路径
-        # 并记录到startli的总距离
+        # this dict is to record the previous li and used to find the minimal distance trace
+        # record distance from current li to startli
         prev = {startnd: {'prev': None, 'distance': 0, 'step': 0}}
         neighbor, _, _ = self.Node_forward_Node(startnd, self.node, self.links, end_positions)
-        # print(neighbor)
         currentnd = None
         _, prevnd = self.Link_to_Node(list(cross_status[startnd]['self.links'])[0], startnd, self.links)
-        # print(prevnd)
         end_targets = set()
 
         while not queue.Que_isEmpty():
-            # print("Current self.node id is : {}".format(currentnd))
-            # print("Current self.node id's Neighbor is : {}".format(neighbor))
             if currentnd is None:
                 currentnd = queue.Que_out()
                 blockednd.add(currentnd)
@@ -638,7 +592,7 @@ class GraphBuilder:
                 currentnd = queue.Que_out()
                 neighbor, _, _ = self.Node_forward_Node(currentnd, self.node, self.links, blockednd)
             else:
-                #   如果现有的li已经超过timelimits的情况，不需要继续延伸了
+                #   search times more than the the timelimits, the serch should be stopped
                 currentnd = queue.Que_out()
                 neighbor, _, _ = self.Node_forward_Node(currentnd, self.node, self.links, blockednd)
                 continue
@@ -646,11 +600,8 @@ class GraphBuilder:
             for nextnd in neighbor:
                 inter_li, _ = self.Link_between_Nodes(currentnd, nextnd)
                 new_distance = self.link_storage[inter_li].length + prev[currentnd]['distance']
-                # angle = AngleCal_nd(self.node_storage[prevnd], self.node_storage[currentnd], self.node_storage[nextnd])
-                # print(angle)
-                # if abs(angle) > 0.6:
-                if (nextnd not in blockednd):  # nextli是第一次找到
-                    #   保证不会反向传播
+                if (nextnd not in blockednd):  # this nextli is first searched
+                    #   ensuring this search process wont backward
                     prev[nextnd] = dict()
                     prev[nextnd]['prev'] = currentnd
                     prev[nextnd]['distance'] = new_distance
@@ -658,13 +609,12 @@ class GraphBuilder:
                     blockednd.add(nextnd)
                     if nextnd in brk_end:
                         end_targets.add(nextnd)
-                        # print("新找到的点是：{}".format(nextnd))
                     else:
                         queue.Que_in(nextnd)
 
-                else:  # nextli不是第一次找到
+                else:  # this nextli is searched before
                     if new_distance < prev[nextnd]['distance']:
-                        #   说明范围内找到了距离更短的点
+                        #   it means shorter path is found
                         prev[nextnd]['prev'] = currentnd
                         prev[nextnd]['distance'] = new_distance
                         prev[nextnd]['step'] = prev[currentnd]['step'] + 1
@@ -681,7 +631,7 @@ class GraphBuilder:
             if len(path) == 0:
                 continue
             tem_path = self.find_whole_path_within_seq(path, cross_status)
-            if len(tem_path) < 3:  # 说明不成环
+            if len(tem_path) < 3:  # no cycle found
                 continue
             path_roundness = roundness(tem_path)
             if path_roundness < 0.25:
@@ -697,7 +647,7 @@ class GraphBuilder:
 
     def find_whole_path_within_seq(self, seq, cross):
         '''
-        用于找到seq中所有空间铆钉点，并形成一个闭环回路
+        find all intermediate pts to form a cycle
         :param seq:
         :param cross:
         :return:
@@ -706,13 +656,10 @@ class GraphBuilder:
         start = seq[0]
         end = seq[-1]
         whole_path_node = list()
-        #   补充每两个节点之间的线段中的位置铆钉点，首尾点与node重合因此不需要。
+        #   start pt and end pts both overlap with node position
         prevnd = start
 
-        # print("cross:{}".format(cross))
-        # print("end:{}".format(end))
-
-        #   先找到start 和 end中间的点
+        #   find all intermediate pts from start pt to end pt
         for nd, link_record in cross.items():
             if nd == start or nd == end:
                 continue
@@ -721,9 +668,9 @@ class GraphBuilder:
             elif link_record['self.links'].intersection(cross[end]['self.links']) and (nd not in seq):
                 seq.append(nd)
         if seq[0] != start and seq[-1] != end:
-            #   收尾点都更新的情况,最多还存在一个junction
+            #   if start and end are both updated,in this case, there might exist a junction at most.
             if not cross[seq[0]]["self.links"].intersection(cross[seq[0]]["self.links"]):
-                #   说明start 和 end 不能形成闭环
+                #   only start and end cannot form a cycle path
                 nd1, _, _ = self.Node_forward_Node(seq[0], self.node, self.links, endpt=set(seq))
                 nd2, _, _ = self.Node_forward_Node(seq[-1], self.node, self.links, endpt=set(seq))
                 missing_nd = set(nd1).intersection(set(nd2))
@@ -734,12 +681,11 @@ class GraphBuilder:
 
         for currentnd in seq:
             if currentnd == prevnd:
-                #   从第二位置遍历开始
                 whole_path_node.append(self.node_storage[prevnd])
                 continue
             interlink: set = self.node[prevnd].intersection(self.node[currentnd])
             if len(interlink) > 1:
-                #   多条相交线段中，返回最短那条
+                #   Among intersecting links, return the shortest one
                 shortest_link = interlink.pop()
                 shortest_length = self.link_storage[shortest_link].length
                 while interlink:
@@ -759,8 +705,8 @@ class GraphBuilder:
             if len(interlink_pts) == 2:
                 whole_path_node.append(self.node_storage[currentnd])
             elif len(interlink_pts) > 2:
-                #   需要补足中间的铆钉点
-                #   先确认中间点的顺序
+                #   need add in intermediate pts
+                #   check the sequence of intermediate pts
                 if interlink_pts[0].distance(self.node_storage[prevnd]) > 1:
                     interlink_pts.reverse()
                 for idx, nd in enumerate(interlink_pts):
@@ -806,7 +752,6 @@ class GraphBuilder:
     def subgraph_filtering(self, involving_links: set):
         sub_link = dict()
         sub_node = dict()
-        #   初始化sub_link的数据结构
         for l in involving_links:
             sub_link[l] = set()
         for l in sub_link.keys():
@@ -927,7 +872,6 @@ class GraphBuilder:
                     second_n = stack[1]
                     if len(node_link[first_n].intersection(node_link[second_n])) > 1:
                         cycle.append((stack.copy(), record[top][stack[-1]]["total_length"]))
-                        # cycle[stack] = record[top][stack[-1]]["total_length"]
                         stack.pop()
                         continue
                     else:
@@ -935,7 +879,6 @@ class GraphBuilder:
                         continue
 
                 cycle.append((stack.copy(), record[top][stack[-1]]["total_length"]))
-                # cycle[stack] = record[top][stack[-1]]["total_length"]
                 stack.pop()
                 continue
             last = stack[-1]
@@ -969,7 +912,7 @@ class GraphBuilder:
                 continue
             interlink: set = self.node[prevnd].intersection(self.node[currentnd])
             if len(interlink) > 1:
-                #   多条相交线段中，返回最短那条
+                #   return the shortest link at this junction
                 shortest_link = interlink.pop()
                 shortest_length = self.link_storage[shortest_link].length
                 while interlink:
@@ -988,8 +931,8 @@ class GraphBuilder:
             if len(interlink_pts) == 2:
                 whole_path_node.append(self.node_storage[currentnd])
             elif len(interlink_pts) > 2:
-                #   需要补足中间的铆钉点
-                #   先确认中间点的顺序
+                #   add intermediate pts
+                #   ensuring the sequence of intermediate pts
                 if interlink_pts[0].distance(self.node_storage[prevnd]) > 1:
                     interlink_pts.reverse()
                 for idx, nd in enumerate(interlink_pts):
@@ -1039,8 +982,8 @@ class GraphBuilder:
         seq_head = [o_nd] + seq_o2d + [d_nd]
         seq_tail = [o_nd] + seq_d2o + [d_nd]
 
-        #   status is the source of those pts, if the pt is mapped to a real node, then nid; if it is from a mid pt within
-        #           links , then None
+        #   status is the source of those pts, if the pt is mapped to a real node, then nid; if it is from a mid pt
+        #   within links , then None
         #   record: status of links whether this link has been passed or not
         #   storage: new nodes geometry
         head_status, record, head_storage = self.get_inter_nd(seq_head)
@@ -1083,22 +1026,22 @@ class GraphBuilder:
 
     def get_link_between_nds(self, nd1, nd2, record=None, mode: str = "shortest", sub_graph=None):
         '''
-        这个方法返回两个节点之间的link，但是存在两种情况，
-        1   存在复数link时：
-            1.1 mode 1：“updating mode”：直接将待合并的线段直接更新合并成同一线段
-            1.2 mode 2：“shortest mode”：直接返回最小的link值
-            1.3 mode 3：“All mode”：返回全部相连线段
-        2   record中存储需要排除的情况
+        This method returns the link between two nodes, but there are two situations,
+        When there is a complex link:
+        1.1 mode 1: "Updating mode": Directly update and merge the line segments to be merged into the same line segment
+        1.2 mode 2: "shortest mode": directly returns the smallest link value
+        1.3 mode 3: "All mode": returns all connected line segments
+        2 situations that need to be excluded when storing in the record
         :param nd1:
         :param nd2:
-        :param record:需要排除的link id
-        :param mode: 默认返回最短的相连线段
-                1.1 mode 1：“updating”：直接将待合并的线段直接更新合并成同一线段
-                1.2 mode 2：“shortest”：直接返回最小的link值
-                1.3 mode 3：“all”：返回全部相连线段(return list)
-        :param sub_graph: default as None, None的时候不需要更新子图拓扑，非None则更新
-                            subgraph[0]表示从节点向链接的映射
-                            subgraph[1]表示从链接向节点饿映射
+        : paramrecord: Link IDs that need to be excluded
+        : param mode: default returns the shortest connected line segment
+        1.1 Mode 1: "Updating": Directly update and merge the line segments to be merged into the same line segment
+        1.2 mode 2: "shortest": directly returns the smallest link value
+        1.3 mode 3: "all": Return all connected line segments (return list)
+        : param_ subgraph: default as None. When None, there is no need to update the subgraph topology, otherwise it will be updated
+        Subgraph [0] represents the mapping from nodes to links
+        Subgraph [1] represents the mapping from links to nodes
         :return:
         '''
         #   expecting to return a single line between nd1 and nd2
@@ -1132,22 +1075,6 @@ class GraphBuilder:
             elif mode == "all":
                 record = record.union(inter_link_sets)
                 return inter_link_sets, record
-            # elif mode == "updating":
-            #     #   record 中现在没有输出需求，所以并没有更新record 中的信息，如果未来需要输出record
-            #     #   则需要再updating中去除被
-            #     if sub_graph is None:
-            #         updated_link, new_link_id = merging_duplicate_links(nd1, nd2)
-            #         for i in new_link_id:
-            #             record.add(i)
-            #         return updated_link, record
-            #     else:
-            #         sub_node = sub_graph[0]
-            #         sub_link = sub_graph[1]
-            #         updated_link, new_link_id, sub_node, sub_link = merging_duplicate_links(nd1, nd2,[sub_node, sub_link])
-            #         for i in new_link_id:
-            #             record.add(i)
-            #         return updated_link, record, sub_node, sub_link
-
             else:
                 raise Exception("Check mode. Not accept the {} mode as input".format(mode))
         elif len(inter_link_sets) == 1:  # Most Cases
