@@ -48,8 +48,8 @@ def save_idx(idxs, storage, filename):
 def save_data_structure(data, filename='data.pkl'):
     """
     save the connectivity configurations
-    :param data: 要保存的数据结构。
-    :param filename: 保存的文件名，默认为'data.pkl'。
+    :param data: connectivity structure
+    :param filename: default as 'data.pkl'。
     """
     filelist = os.listdir()
     if 'result' not in filelist:
@@ -61,9 +61,9 @@ def save_data_structure(data, filename='data.pkl'):
 
 def load_data_structure(filename='data.pkl'):
     """
-    从本地文件中读取数据结构。
-    :param filename: 要读取的文件名，默认为'data.pkl'。
-    :return: 读取的数据结构。
+    load the connectivity configurations
+    :param filename: file name default as 'data.pkl'。
+    :return:
     """
     try:
         with open(filename, 'rb') as file:
