@@ -23,7 +23,7 @@ desired_type = [
     'tertiary_link',
     'motorway'
 ]
-# 清理出想要的线型
+
 data = data[data['highway'].apply(lambda x: True if x in desired_type else False)]
 data = data[['OBJECTID', 'geometry']]
 data['nodes'] = data.apply(lambda x: [], axis=1)
