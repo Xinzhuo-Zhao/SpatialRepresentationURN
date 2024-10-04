@@ -269,7 +269,7 @@ class GraphBuilder:
                         ChangedVec = BefVec - AftVec
                         BefLen = norm(BefVec, ord=2, axis=0)
                         ChangedLen = norm(ChangedVec, ord=2, axis=0)
-                        while BefLen == 0:  # -1位置存在重合点
+                        while BefLen == 0: 
                             l1_list.pop()
                             BefVec = np.array(l1_list[-1].coords[0]) - np.array(l1_list[-2].coords[0])
                             AftVec = np.array(new_pt.coords[0]) - np.array(l1_list[-1].coords[0])
@@ -288,7 +288,7 @@ class GraphBuilder:
                         ChangedVec = BefVec - AftVec
                         BefLen = norm(BefVec, ord=2, axis=0)
                         ChangedLen = norm(ChangedVec, ord=2, axis=0)
-                        while BefLen == 0:  # -1位置存在重合点
+                        while BefLen == 0:
                             l1_list.pop(0)
                             BefVec = np.array(l1_list[0].coords[0]) - np.array(l1_list[1].coords[0])
                             AftVec = np.array(new_pt.coords[0]) - np.array(l1_list[1].coords[0])
@@ -314,7 +314,7 @@ class GraphBuilder:
         loop = list(n_set)
         for l1 in range(len(loop)):
             for l2 in range(l1 + 1, len(loop)):
-                # 保证角度计算是从交点出发
+                # ensuring the pt sequence from junctions
                 t1 = [Point(self.link_storage[loop[l1]].xy[0][0], self.link_storage[loop[l1]].xy[1][0]),
                       Point(self.link_storage[loop[l1]].xy[0][-1], self.link_storage[loop[l1]].xy[1][-1])]
                 t2 = [Point(self.link_storage[loop[l2]].xy[0][0], self.link_storage[loop[l2]].xy[1][0]),
@@ -346,7 +346,6 @@ class GraphBuilder:
                         self.merging_storage.append({loop[l1], loop[l2]})
 
     def run_find_close_cycles_on_graph(self, storage_id):
-        #   先检查li_set
         li_set = self.merging_storage[storage_id].copy()
         pts_status, brk_pts = self.check_breaknd(li_set)
         if len(brk_pts) == 0:
@@ -373,7 +372,6 @@ class GraphBuilder:
                             li_set = self.merging_storage[self.merging_dict[i]].union(li_set)
                     self.merging_storage[storage_id] = li_set
                     for i in li_set:
-                        #   对于新更新进来的线段
                         if i not in self.merging_dict:
                             #   i is a new founded link in cycles
                             self.merging_dict[i] = storage_id
