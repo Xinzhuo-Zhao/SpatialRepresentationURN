@@ -1,5 +1,6 @@
 from shapely.ops import split, nearest_points
 import shapely
+from tqdm import tqdm
 from numpy.linalg import norm
 from data_structure import Queue
 from Angle import *
@@ -53,11 +54,6 @@ def cosine_similarity(vec1, vec2):
 def midPt(s):
     return Point(((s.xy[0][-1] + s.xy[0][0]) / 2, (s.xy[1][-1] + s.xy[1][0]) / 2))
 
-
-def endPts(s):
-    end1 = Point(s.xy[0][0], s.xy[1][0])
-    end2 = Point(s.xy[0][-1], s.xy[1][-1])
-    return end1, end2
 
 
 def LineStringVec(pts):
@@ -182,7 +178,6 @@ def LineSimplication(s, l_id):
     if len(li_list) < 2:
         return None, None, None, False
 
-    #   初始点入列
     res_node.append(Point(s.xy[0][0], s.xy[1][0]))
     node_map[0] = {0}
     while len(li_list) > 1:
@@ -223,22 +218,19 @@ def nodes_split_curve(nodesList, curve):
     :param data: dict road_idx: "node": node_geos(list), "geometry": road_geos(shapely)
     :param geo_key:
     :return: separateLi(list)
-    :return: separateMap(dict) 原有的geo_keys向separateLi的idx映射
+    :return: separateMap(dict) Original geo_keys to separateLi idx mapping
     '''
     separatLi = list()
 
     rd_geo = curve
     cross_pt = nodesList
-    '''
-    所有点入列
-    '''
     pt_que = Queue()
     rd_list = list()
     rd_list.append(rd_geo)
     for pt in cross_pt:
         pt_que.Que_in(pt)
     '''
-    按照类型处理每一个点跟线的情况，
+    use pts to split the link accordingly
     until all pts are used
     '''
     while not pt_que.Que_isEmpty():
@@ -247,41 +239,34 @@ def nodes_split_curve(nodesList, curve):
         while l_idx < len(rd_list):
             current_li = rd_list[l_idx]
             dist_to_curve = check_pt_on_curve(current_pt, current_li)
-            #   开始检测currentli和currentpt之间的关系
+            #   check the intersection releationship between the currentli and currentpt
             if dist_to_curve > 1:
-                #   如果距离大于1m，说明跟这个线段是无关的，直接找下一条线
+                #   if distance larger than tolerance(1m), than it means this split pt is not correct.
                 l_idx += 1
                 continue
             if check_endpt(current_pt, current_li):
-                #   检查p是不是endpt
-                #   是：  对线不做任何处理，直接算下一个点
-                #   不是: 对线进行split
+                #   check currentpt is endpt or not
+                #   True：  pass
+                #   False: currentpt should split the current_li
                 break
             else:
-                #   是切割点且找到了需要被切割的线
-                #   但是点不一定直接在线上
+                #   current_pt should split the currentli
+                #   current_pt is direct on current li or not
                 if dist_to_curve == 0:
-                    #   正好在线上
+                    #   current_pt is on the currentli
                     break_pt = current_pt
                     spt_list = split_polyline(break_pt, current_li)
                     rd_list.pop(l_idx)
                     rd_list = rd_list + spt_list
                     break
                 else:
-                    #   不在线上
+                    #   current_pt not on currentli
                     break_pt = nearest_pt(current_pt, current_li)
                     spt_list = split_polyline(break_pt, current_li)
-                    #   有可能找不到最近点
 
                     rd_list.pop(l_idx)
                     rd_list = rd_list + spt_list
                     break
-    '''
-    点已经完全分割了线
-    线存储在
-    转移到separatLi里
-    并保留映射关系
-    '''
     for i in rd_list:
         idx = len(separatLi)
         separatLi.append(i)
@@ -386,3 +371,78 @@ def straighten_links(pt_list):
     # pt_list = [j for i,j in enumerate(pt_list) if i not in block]
     res_list.append(pt_list[-1])
     return res_list
+
+
+def Crossing_Checking(data, geo_key):
+    '''
+    This function Generate
+    :param data: dict road_idx: "node": node_geos(list), "geometry": road_geos(shapely)
+    :param geo_key:
+    :return: separateLi(list)
+    :return: separateMap(dict) he original geo_keys are mapped to separateLi idx
+    '''
+    separatLi = list()
+    separatDict = dict()
+
+    for li in tqdm(range(len(geo_key))):
+        rd_idx = geo_key[li]
+        rd_geo = data[rd_idx]['geometry']
+        cross_pt = data[rd_idx]['nodes']
+
+        if len(cross_pt) == 0:
+            continue
+        pt_que = Queue()
+        rd_list = list()
+        rd_list.append(rd_geo)
+        for pt in cross_pt:
+            pt_que.Que_in(pt)
+        '''
+        Handling each point-following-line case by type.
+        until all pts are used
+        '''
+        while not pt_que.Que_isEmpty():
+            current_pt = pt_que.Que_out()
+            l_idx = 0
+            while l_idx < len(rd_list):
+                current_li = rd_list[l_idx]
+                dist_to_curve = check_pt_on_curve(current_pt, current_li)
+                #    Start detecting the relationship between currentli and currentpt
+                if dist_to_curve > 1:
+                    #   If the distance is greater than 1m, it means that it is not related to this line segment,
+                    #   and you can find the next line directly.
+                    l_idx += 1
+                    continue
+                if check_endpt(current_pt, current_li):
+                    #   check whether the pt is the endpt
+                    #   True：  do not split
+                    #   False: pt should split
+                    break
+                else:
+                    #   find split pt and corresponding link
+                    #   but the split pt may not locate on the the link geometry
+                    if dist_to_curve == 0:
+                        #   the split geometry is on the link geometry
+                        break_pt = current_pt
+                        spt_list = split_polyline(break_pt, current_li)
+                        rd_list.pop(l_idx)
+                        rd_list = rd_list + spt_list
+                        break
+                    else:
+                        #   not on the link geometry
+                        break_pt = nearest_pt(current_pt, current_li)
+                        spt_list = split_polyline(break_pt, current_li)
+
+                        rd_list.pop(l_idx)
+                        rd_list = rd_list + spt_list
+                        break
+        '''
+        The point has completely split the line
+        The line is stored in separatLi
+        the mapping relationship is preserved in separatDict
+        '''
+        for i in rd_list:
+            idx = len(separatLi)
+            separatLi.append(i)
+            separatDict[idx] = li
+
+    return separatLi, separatDict

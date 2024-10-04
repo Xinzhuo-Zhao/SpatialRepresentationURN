@@ -6,9 +6,9 @@ from data_structure import *
 from data_input import *
 
 class GraphBuilder:
-    def __init__(self, link_storage, links, node, node_storage, filename):
+    def __init__(self, link_storage, link, node, node_storage, filename):
         self.link_storage = link_storage
-        self.links = links
+        self.link = link
         self.node = node
         self.node_storage = node_storage
         self.crossing_management = dict()
@@ -21,7 +21,7 @@ class GraphBuilder:
     def save(self):
         save_testingFile(self.link_storage, self.filename+ 'links')
         save_testingFile(self.node_storage, self.filename + 'nodes')
-        save_data_structure(self.links, self.filename + "Graph_links.pkl")
+        save_data_structure(self.link, self.filename + "Graph_links.pkl")
         save_data_structure(self.node, self.filename + "Graph_node.pkl")
     
     def run(self):
@@ -40,18 +40,18 @@ class GraphBuilder:
         for link_id in tqdm(range(len(self.link_storage))):
             if self.link_storage[link_id] is None:
                 continue
-            if len(self.links[link_id]) == 0:
+            if len(self.link[link_id]) == 0:
                 self.link_storage[link_id] = None
-                if len(self.links[link_id]) > 0:
-                    kept = self.links[link_id].pop()
-                    for nd in self.links[link_id]:
+                if len(self.link[link_id]) > 0:
+                    kept = self.link[link_id].pop()
+                    for nd in self.link[link_id]:
                         self.node[kept] = self.node[kept].union(self.node[nd])
                         self.node.pop(nd)
                         self.node_storage[nd] = None
                     self.node[kept].discard(link_id)
-                self.links.pop(link_id)
+                self.link.pop(link_id)
         
-        for l, n in tqdm(self.links.items()):
+        for l, n in tqdm(self.link.items()):
             if not self.link_storage[l]:
                 continue
             self.run_remove_anomalous_shortlinks(l, n)
@@ -87,7 +87,7 @@ class GraphBuilder:
         self.check_graph_validation()
 
         print("run_remove_anomalous_shortlinks in {} time".format(looptimes))
-        for l, n in tqdm(self.links.items()):
+        for l, n in tqdm(self.link.items()):
             if self.link_storage[l] is None:
                 continue
             self.run_remove_anomalous_shortlinks(l, n)
@@ -128,17 +128,17 @@ class GraphBuilder:
                 current_index = len(self.link_storage)
                 add_idx.append(current_index)
                 self.link_storage.append(i)
-                self.links[current_index] = set()
+                self.link[current_index] = set()
             self.link_storage[l] = None
-            for relate_nd in self.links[l]:
+            for relate_nd in self.link[l]:
                 for relate_li in add_idx:
                     if check_endpt(self.node_storage[relate_nd], self.link_storage[relate_li]):
                         self.node[relate_nd].add(relate_li)
-                        self.links[relate_li].add(relate_nd)
+                        self.link[relate_li].add(relate_nd)
                 self.node[relate_nd].remove(l)
                 if l in self.node[relate_nd]:
                     raise ValueError("unfound related links")
-            self.links.pop(l)
+            self.link.pop(l)
     
     def run_linesimplification(self, link_id):
         spt_list, spt_node, nd2li, status = LineSimplication(self.link_storage[link_id], link_id)
@@ -147,7 +147,7 @@ class GraphBuilder:
         if len(spt_list) == 1:
             self.link_storage[link_id] = spt_list[0]
             return
-        related_nd = self.links.pop(link_id)
+        related_nd = self.link.pop(link_id)
         self.link_storage[link_id] = None
         dup_record = dict()
         #   检测有没有被纪录过
@@ -171,13 +171,13 @@ class GraphBuilder:
                             #   li is traversed for the first time
                             current_lidx = len(self.link_storage)
                             dup_record[li] = current_lidx
-                            self.links[current_lidx] = {nd}
+                            self.link[current_lidx] = {nd}
                             self.node[nd].add(current_lidx)
                             self.link_storage.append(spt_list[li])
                         else:
                             #   li was traversed before
                             current_lidx = dup_record[li]
-                            self.links[current_lidx].add(nd)
+                            self.link[current_lidx].add(nd)
                             self.node[nd].add(current_lidx)
                         break
             else:
@@ -190,13 +190,13 @@ class GraphBuilder:
                         #   li is traversed for the first time
                         current_lidx = len(self.link_storage)
                         dup_record[li] = current_lidx
-                        self.links[current_lidx] = {current_nidx}
+                        self.link[current_lidx] = {current_nidx}
                         self.node[current_nidx].add(current_lidx)
                         self.link_storage.append(spt_list[li])
                     else:
                         #   li was traversed before
                         current_lidx = dup_record[li]
-                        self.links[current_lidx].add(current_nidx)
+                        self.link[current_lidx].add(current_nidx)
                         self.node[current_nidx].add(current_lidx)
 
     def run_Combine_PassLinks(self, n_idx, n_set):
@@ -211,14 +211,14 @@ class GraphBuilder:
                 new_node = set()
                 self.link_storage.append(new_link)
                 for l in n_set:
-                    self.links[l].discard(n_idx)
-                    new_node = new_node.union(self.links[l])
+                    self.link[l].discard(n_idx)
+                    new_node = new_node.union(self.link[l])
                     self.link_storage[l] = None
-                    for n in self.links[l]:
+                    for n in self.link[l]:
                         self.node[n].discard(l)
                         self.node[n].add(idx)
-                    self.links[l] = None
-                self.links[idx] = new_node
+                    self.link[l] = None
+                self.link[idx] = new_node
                 self.node[n_idx] = None
                 self.node_storage[n_idx] = None
 
@@ -253,10 +253,10 @@ class GraphBuilder:
                     l1 = self.link_storage[fixline]
                     if l1.length == 0:
                         self.link_storage[fixline] = None
-                        if fixline in self.links:
-                            for n in self.links[fixline]:
+                        if fixline in self.link:
+                            for n in self.link[fixline]:
                                 self.node[n].discard(fixline)
-                            self.links.pop(fixline)
+                            self.link.pop(fixline)
                         continue
                     if l1 is None:
                         continue
@@ -303,9 +303,9 @@ class GraphBuilder:
                             l1_list.insert(0, new_pt)
                     self.link_storage[fixline] = LineString(l1_list)
                     #   Graph connectivity update
-                    self.links[fixline] = self.links[fixline] - n_set
-                    self.links[fixline].add(pt_idx)
-                self.links[l_idx] = None
+                    self.link[fixline] = self.link[fixline] - n_set
+                    self.link[fixline].add(pt_idx)
+                self.link[l_idx] = None
                 self.link_storage[l_idx] = None
 
     def run_IdentifyParrallelCrossing(self, n_idx, n_set):
@@ -389,7 +389,7 @@ class GraphBuilder:
             if testing_g is None:
                 continue
             for i in testing_g:
-                if i not in self.links:
+                if i not in self.link:
                     self.merging_storage[idx] = None
                     break
             if self.merging_storage[idx] is None:
@@ -420,17 +420,17 @@ class GraphBuilder:
                 current_index = len(self.link_storage)
                 add_idx.append(current_index)
                 self.link_storage.append(i)
-                self.links[current_index] = set()
+                self.link[current_index] = set()
             self.link_storage[l] = None
-            for relate_nd in self.links[l]:
+            for relate_nd in self.link[l]:
                 for relate_li in add_idx:
                     if check_endpt(self.node_storage[relate_nd], self.link_storage[relate_li]):
                         self.node[relate_nd].add(relate_li)
-                        self.links[relate_li].add(relate_nd)
+                        self.link[relate_li].add(relate_nd)
                 self.node[relate_nd].remove(l)
                 if l in self.node[relate_nd]:
                     raise ValueError("未知错误：未找到继承关系线")
-            self.links.pop(l)
+            self.link.pop(l)
 
     def Identify_MergingDifference(self, prev_merging_dict, prev_merging_stg, merging_d, merging_stg):
         for i in merging_d.keys():
@@ -450,10 +450,10 @@ class GraphBuilder:
                 line1 = self.link_storage[o]
                 line2 = self.link_storage[d]
 
-                if o not in self.links.keys():
-                    self.links[o] = set()
-                if d not in self.links.keys():
-                    self.links[d] = set()
+                if o not in self.link.keys():
+                    self.link[o] = set()
+                if d not in self.link.keys():
+                    self.link[d] = set()
                 if pt_idx[0] not in self.node.keys():
                     self.node[pt_idx[0]] = set()
 
@@ -528,8 +528,8 @@ class GraphBuilder:
         if new_pt == 0:
             self.node[pt_idx[1]].add(o)
             self.node[pt_idx[1]].add(d)
-            self.links[o].add(pt_idx[1])
-            self.links[d].add(pt_idx[1])
+            self.link[o].add(pt_idx[1])
+            self.link[d].add(pt_idx[1])
             if not check_endpt(intersectionPT, self.link_storage[o]):
                 if o in crossing_management.keys():
                     crossing_management[o].add(pt_idx[1])
@@ -545,8 +545,8 @@ class GraphBuilder:
                 self.node[pt_idx[0]] = set()
             self.node[pt_idx[0]].add(o)
             self.node[pt_idx[0]].add(d)
-            self.links[o].add(pt_idx[0])
-            self.links[d].add(pt_idx[0])
+            self.link[o].add(pt_idx[0])
+            self.link[d].add(pt_idx[0])
             self.node_storage.append(intersectionPT)
             if not check_endpt(intersectionPT, self.link_storage[o]):
                 if o in crossing_management.keys():
@@ -579,9 +579,9 @@ class GraphBuilder:
         # this dict is to record the previous li and used to find the minimal distance trace
         # record distance from current li to startli
         prev = {startnd: {'prev': None, 'distance': 0, 'step': 0}}
-        neighbor, _, _ = self.Node_forward_Node(startnd, self.node, self.links, end_positions)
+        neighbor, _, _ = self.Node_forward_Node(startnd, self.node, self.link, end_positions)
         currentnd = None
-        _, prevnd = self.Link_to_Node(list(cross_status[startnd]['self.links'])[0], startnd, self.links)
+        _, prevnd = self.Link_to_Node(list(cross_status[startnd]['self.links'])[0], startnd, self.link)
         end_targets = set()
 
         while not queue.Que_isEmpty():
@@ -590,11 +590,11 @@ class GraphBuilder:
                 blockednd.add(currentnd)
             elif prev[currentnd]['step'] < timelimits:
                 currentnd = queue.Que_out()
-                neighbor, _, _ = self.Node_forward_Node(currentnd, self.node, self.links, blockednd)
+                neighbor, _, _ = self.Node_forward_Node(currentnd, self.node, self.link, blockednd)
             else:
                 #   search times more than the the timelimits, the serch should be stopped
                 currentnd = queue.Que_out()
-                neighbor, _, _ = self.Node_forward_Node(currentnd, self.node, self.links, blockednd)
+                neighbor, _, _ = self.Node_forward_Node(currentnd, self.node, self.link, blockednd)
                 continue
 
             for nextnd in neighbor:
@@ -671,8 +671,8 @@ class GraphBuilder:
             #   if start and end are both updated,in this case, there might exist a junction at most.
             if not cross[seq[0]]["self.links"].intersection(cross[seq[0]]["self.links"]):
                 #   only start and end cannot form a cycle path
-                nd1, _, _ = self.Node_forward_Node(seq[0], self.node, self.links, endpt=set(seq))
-                nd2, _, _ = self.Node_forward_Node(seq[-1], self.node, self.links, endpt=set(seq))
+                nd1, _, _ = self.Node_forward_Node(seq[0], self.node, self.link, endpt=set(seq))
+                nd2, _, _ = self.Node_forward_Node(seq[-1], self.node, self.link, endpt=set(seq))
                 missing_nd = set(nd1).intersection(set(nd2))
                 if len(missing_nd) == 1:
                     seq.append(missing_nd.pop())
@@ -725,7 +725,7 @@ class GraphBuilder:
         if breakpt_record is None:
             breakpt_record = list()
         for li in li_set:
-            for nd in self.links[li]:
+            for nd in self.link[li]:
                 num_crossing = 0
                 if nd not in crossing_record:
                     crossing_nd_set = set()
@@ -755,9 +755,9 @@ class GraphBuilder:
         for l in involving_links:
             sub_link[l] = set()
         for l in sub_link.keys():
-            for n in self.links[l]:
+            for n in self.link[l]:
                 if len(self.node[n].intersection(involving_links)) > 1:
-                    #   说明n这个节点有至少两条连接并不构成孤点
+                    #   This node n has at least two connections and does not constitute a solitary node
                     sub_link[l].add(n)
                     if n in sub_node:
                         sub_node[n].add(l)
@@ -789,8 +789,8 @@ class GraphBuilder:
                 if len(node_dict[n_idx]) == 1:
                     #   terminal Node should be removed
                     link_dict, node_dict = self.update_remove_from_node(n_idx, link_dict, node_dict)
-            #   因为运行这个的前提是terminal node只跟一条线相连，所以此时n_idx已经为空了
-            # node_dict.pop(n_idx)
+            #   Because the premise for running this is that the terminal node is only connected to one line,
+            #   so at this point, n_idx is already empty
         return link_dict, node_dict
 
     def select_best_initial_junction(self, node_graph):
@@ -815,13 +815,15 @@ class GraphBuilder:
         :param par_n: whole self.node graph
         :return:      dict of self.node status
         '''
-        #   区分调整点和消失点（转折点放进cycle中单段管理）
-        #   调整点：表示与外界连线还有连接，需要谨慎空间变动的点； 用“fixed_nd”代表
-        #   消失点：只存在子图内部的点；用“eliminated_nd”代表
+        #   Distinguish between adjustment points and vanishing points
+        #   (turning points are placed in the cycle for single segment management)
+        #   Adjustment point: Refers to a point that is still connected to the outside world and requires careful
+        #   consideration of spatial changes; Represented by 'fixed_nd'
+        #   Vanishing point: a point that only exists within the subgraph; Represented by 'eliminated_nd'
         node_type = dict()
         for n_id, l_set in sub_n.items():
-            #   消失点由于只跟子图内部link产生连接;因此l_par_set - l_set = empty
-            #   调整点与子图中外面的点还有其他的link; 因此 l_par_set - l_set还有其他的元素
+            #   The vanishing point is only connected to the internal links of the subgraph;
+            #   Therefore,l_par_set - l_set = empty
             l_par_set = par_n[n_id]
             difference = l_par_set.difference(l_set)
             if len(difference) > 0:
@@ -847,7 +849,6 @@ class GraphBuilder:
             nextpt = record[top].keys()
             for i in nextpt:
                 if (i not in stack or i == current_nd) and (record[top][i]['status'] == 0):
-                    #   找到一个有效点
                     #   not in routine and it has never been passed
                     #   or reach the start nd and form a cycle
                     stack.append(i)
@@ -864,10 +865,6 @@ class GraphBuilder:
                 #   when current_nd is founded
                 #   output the whole cycle
                 if len(stack) == 3:
-                    # 此时有两种可能：
-                    # 情况一：在一条线上来回，
-                    # 情况二：在两个节点中存在复数重复线段
-                    # 情况一的情况不需要更新，只更新情况二
                     first_n = stack[0]
                     second_n = stack[1]
                     if len(node_link[first_n].intersection(node_link[second_n])) > 1:
@@ -973,8 +970,9 @@ class GraphBuilder:
 
     def find_internal_nd(self, seq_o2d, seq_d2o, o_nd, d_nd):
         '''
-        建立从O到D之间，共有左右两支节点链；输入时长度未知，但顺序都是从o 到 d; 这个方法是要建立位于从O到D的两个链路之间的中点链接；
-        并记录可能的断点。
+        Establish two node chains from O to D, one on the left and one on the right; The length of the input is unknown,
+        but the order is from o to d; This method is to establish a midpoint link between two links from O to D; And
+        record possible breakpoints.
         this step follows the function of "separate_nd_seq"
         '''
         #   first, get all pts within links from both side
@@ -995,9 +993,9 @@ class GraphBuilder:
 
     def get_inter_nd(self, seq_nd: list, stack: set = None, mode: str = "shortest"):
         '''
-
+        get inter nodes
         :param seq_nd: （list）seq_o2d or seq_d2o
-        :param stack: 记录那些已经被选过的link，避免重复的选择
+        :param stack: Record the links that have already been selected to avoid duplicate selections
         :return:status: dict{}
         '''
         if stack is None:
@@ -1070,7 +1068,7 @@ class GraphBuilder:
                 if shortest_link is not None:
                     record.add(shortest_link)
                     return shortest_link, record
-                else:  # 防御性语句
+                else:
                     raise Exception("Not Found Non-Duplication Path, All possible links has been recorded")
             elif mode == "all":
                 record = record.union(inter_link_sets)
@@ -1081,24 +1079,21 @@ class GraphBuilder:
             out_link = inter_link_sets.pop()
             record.add(out_link)
             return out_link, record
-        else:  # 防御性语句
+        else:
             raise Exception('No link between n1 and n2 can be found')
 
     def cycle_simplify(self, min_cycle, node_graph, link_graph, node_manage):
         '''
-        修正minimal_cycle_list，并将其修正成单一线段。
+        Aggregate the minimal cycles into a distinct segment
         '''
         sub_n = deepcopy(node_graph)
         sub_l = deepcopy(link_graph)
-        #   先检测每个node的属性
-        #   找到转折点先
+        #   Find the turning pts
         manage = dict()
-        endnd = list()  # 记录所有已经遍历过的位置
+        endnd = list()  # record searched elements
         node_angle = dict()  # minimal_circle_node_id : angle
         prev_id = min_cycle[-2]
         for idx in range(len(min_cycle) - 1):
-            #   minimal_cycle是针对节点的有序列表
-            #   前一个点和后一个点取交集分别跟当前点取交集，即是其相连的线段
             current_id = min_cycle[idx]
             aft_id = min_cycle[idx + 1]
             l1 = sub_n[current_id].intersection(sub_n[prev_id])
@@ -1107,7 +1102,7 @@ class GraphBuilder:
                                      self.link_storage[l2.pop()],
                                      self.node_storage[current_id])
             node_angle[current_id] = angle
-            if angle > 0.6:  # 说明是转折点
+            if angle > 0.6:  # turning pt
                 endnd.append(current_id)
             manage[current_id] = node_manage[current_id]
             prev_id = current_id
@@ -1135,13 +1130,13 @@ class GraphBuilder:
                                                                                            s_status,
                                                                                            mid_nodes)
 
-            #   开始更新新产生的节点与link里的信息
-            #   先更新节点
+            #   update the connectivity information of links and nodes
             for geom_id, target_nid_set in upd_nd_map.items():
                 new_node_geom = upd_nd_stg[geom_id]
-                #   任意取出一个点作为target_nid，其他部分的nodeid信息全部迁移到当前点
+                #   Take any point as the target_nid, and migrate all other parts of the nodeid information to the
+                #   current point
                 target_nid = target_nid_set.pop()
-                if len(target_nid_set):  # 说明有其他点需要被合并
+                if len(target_nid_set):  # Other node should be aggregated
                     sub_n, sub_l = self.update_replacing_node(target_nid, target_nid_set, [sub_n, sub_l])
                     for i in target_nid_set:
                         if min_cycle[0] == i:
@@ -1151,9 +1146,9 @@ class GraphBuilder:
                             min_cycle.remove(i)
                     for key, val in link_status.items():
                         link_status[key] = val.difference(target_nid_set)
-                #   更新node_geometry和其相连的link端点位置
+                #   Update node_geometry and its connected link endpoint positions
                 self.update_change_node_geom(target_nid, new_node_geom)
-            #   更新终点；看终点是否需要更新
+            #   Update endpoint; Check if the endpoint needs to be updated
             for end, replaced_set in end_update.items():
                 sub_n, sub_l = self.update_replacing_node(end, replaced_set, [sub_n, sub_l])
                 for i in replaced_set:
@@ -1162,20 +1157,20 @@ class GraphBuilder:
                         min_cycle.append(min_cycle[0])
                     if i in min_cycle:
                         min_cycle.remove(i)
-            #   再更新link
+            #   update link
             current_step = 0
             next_step = 1
             while next_step < len(min_cycle):
                 link_list = self.node[min_cycle[current_step]].intersection(self.node[min_cycle[next_step]])
                 for li_idx in link_list:
-                    #   删除拓扑信息
+                    #   delete the connections
                     _, sub_n, sub_l = self.del_links(li_idx, [sub_n, sub_l])
                 current_step = current_step + 1
                 next_step = next_step + 1
-            #   将新找到的线的拓扑和几何信息更新
+            #   Update the topology and geometric information of newly found lines
             _, sub_n, sub_l = self.add_links(new_link, link_status, [sub_n, sub_l])
             return sub_n, sub_l
-        else:  # 直接由两个点构成的link
+        else:  # start and end forming a link
             o_nd, d_nd = min_cycle[0], min_cycle[1]
             _, _, sub_n, sub_l = self.merging_duplicate_links(o_nd, d_nd, [sub_n, sub_l])
             return sub_n, sub_l
@@ -1186,9 +1181,9 @@ class GraphBuilder:
         And update the messages in graphs and subgraphs.
         :param nd1:
         :param nd2:
-        :param sub_graph: default as None, None的时候不需要更新子图拓扑，非None则更新
-                            subgraph[0]表示从节点向链接的映射
-                            subgraph[1]表示从链接向节点饿映射
+        :param sub_graph: default as None. If None, subgraph should not be updated.
+                            subgraph[0]: node -> link
+                            subgraph[1]: link -> node
         :return:
         '''
         duplication_links = list(self.node[nd1].intersection(self.node[nd2]))
@@ -1203,8 +1198,6 @@ class GraphBuilder:
             l2 = duplication_links[step]
             l2_inter_points = Points_in_Line(self.link_storage[l2])
             if l1_inter_points[0].distance(l2_inter_points[0]) > l1_inter_points[0].distance(l2_inter_points[-1]):
-                #   保证 l1 和 l2 顺序是统一的
-                #   由于只跟两个点有关, 不需要更新拓扑关系
                 l2_inter_points.reverse()
             l1_inter_status = dict()
             l2_inter_status = dict()
@@ -1216,7 +1209,7 @@ class GraphBuilder:
             l1_inter_points = Points_in_Line(new_link)
             step = step + 1
         '''
-        更新拓扑关系
+        update connectivity configuration
         '''
         if sub_graph is None:
             self.del_links(duplication_links)
@@ -1278,7 +1271,7 @@ class GraphBuilder:
                     tem_nd = s_storage[i]
                     tem_l_idx, tem_another_nd = get_closest_nd(tem_nd, l_storage)
                     tem_new_nd = get_mid_nd(tem_nd, tem_another_nd)
-                    tem_links.append({'status': 'mid_pt', 'geometry': tem_new_nd})  # todo 这是旧的
+                    tem_links.append({'status': 'mid_pt', 'geometry': tem_new_nd})
 
             else:
                 #   When no skipped nds within the
@@ -1288,7 +1281,7 @@ class GraphBuilder:
             l_step = l_step + 1
         #   put endpt into the link and d must be self.node
         tem_links.append({'status': l_status[len(l_storage) - 1], 'geometry': l_storage[-1]})
-        #   tem_link中已经获取了完整的geometry
+        #   tem_link geometry
         tem_link_geom = LineString([i['geometry'] for i in tem_links])
         if junctions is None:
             return tem_link_geom
@@ -1302,20 +1295,20 @@ class GraphBuilder:
             old_geom = self.node_storage[nid]
             new_geom = nearest_pt(old_geom, tem_link_geom)
             junction_id = len(new_node_storage)
-            #   判断junction之间是否过近导致合并
+            #   identify whether the junctions are too close to each other, thus need aggregation.
             for id, geom in enumerate(new_node_storage):
                 if new_geom.distance(geom) < 20:
-                    #   需要被合并
+                    #   should be aggregated
                     junction_id = id
             if junction_id != len(new_node_storage):
-                #   说明junction之间需要被合并
+                #   junctions should be aggregated
                 new_node_map[junction_id].add(nid)
             else:
                 new_node_map[junction_id] = {nid}
                 new_node_storage.append(new_geom)
 
         '''
-            控制junction按照顺序插入
+            insert the junctions according to certain sequence
         '''
         current_links = tem_links
         end_replacing = dict()
@@ -1330,18 +1323,22 @@ class GraphBuilder:
                     current_geom = tem_links[current]["geometry"]
                     next_geom = tem_links[next]["geometry"]
                     '''
-                        一下内容是为了避免现有nd——list中与junction几何完全重合
+                        This part is to avoid the overlapping of geometry in nd_list and junctions
                     '''
                     if current_geom.distance(junc_geom) == 0:
                         if tem_links[current]['status'] == 'mid_pt':
-                            #   currentpt直接被juncnd 取代
+                            #   currentpts are replaced by juncnd
                             used_status = 1
                             current_links.append({'status': new_node_map[junc_id].copy(),
                                                   'geometry': junc_geom})
                             current = current + 1
                             next = next + 1
                             continue
-                        else:  # 说明currentpt和juncnd都是nd，他们需要被合并.用junc替代currentpt
+                        else:
+                            '''
+                                currentpt and juncnd are same, which means that junc should be replcaed by currentpt,
+                                avoiding duplication
+                            '''
                             used_status = 1
                             current_links.append({'status': new_node_map[junc_id].copy(),
                                                   'geometry': junc_geom})
@@ -1350,18 +1347,15 @@ class GraphBuilder:
                             next = next + 1
                             continue
                     if next_geom.distance(junc_geom) == 0:
-                        # nextpt如果是重合的
+                        # nextpt overlaps with juncpt
                         current_links.append(tem_links[next])
                         current = current + 1
                         next = next + 1
                         continue
-                    '''
-                        一下内容是为了避免现有nd——list中与junction
-                    '''
 
                     angle = AngleCal_nd(current_geom, junc_geom, next_geom)
                     if angle > 0 or angle is None:
-                        #   junc位于current和next之间
+                        #   junc locates between current and next
                         used_status = 1
                         current_links.append({'status': new_node_map[junc_id].copy(),
                                               'geometry': junc_geom})
@@ -1369,9 +1363,9 @@ class GraphBuilder:
                 current = current + 1
                 next = next + 1
             if used_status == 0:
-                #   说明之前没有找到合适的插入点
-                #   一般发生在拐角处检测他是更靠近哪一个端点
-                #   直接让端点信息取代原有信息
+                #   Explanation: No suitable insertion point was found before
+                #   Usually occurs at the corner to detect which endpoint it is closer to
+                #   Directly replace the original information with endpoint information
                 if l_storage[0].distance(junc_geom) < l_storage[-1].distance(junc_geom):
                     if l_status[0] not in end_replacing:
                         end_replacing[l_status[0]] = new_node_map[junc_id]
@@ -1385,7 +1379,7 @@ class GraphBuilder:
                             new_node_map[junc_id])
 
         '''
-            将split link 分段输出
+            Segment the split_link for output
         '''
         #   links_status record the new_link idx in new_link and map to nds
         links_status = {0: {l_status[0]}}
@@ -1411,11 +1405,16 @@ class GraphBuilder:
         return new_links, links_status, new_node_storage, new_node_map, end_replacing
 
     def separate_nd_seq(self, minimal_seq_list, endnd):
-        #   将minimal_cycle给划分成两部分
-        #   以endnd[0]为“O”, endnd[1]为“D”(Origin and Destination)
-        #   O to D : 找到O之后的D之前的所有node
-        #   剩下的部分是D to O
-        #   最后为了保证方向一直，都从起点到终点作为， D to O进行reverse， 也成为O to D的顺序，构成环的另外一边
+        """
+        divide the minimal cycle into two separate traces
+        the O is the endnd[0] as start pt and the D is the end[1] as end pt of each trace.
+        from O to D is to find the intermediate pts of one trace
+        from D to O is the intermediate pts of another trace
+        ensuring the direction align the principle of start to end, the 'from D to O' pt sequnce should be revert
+        :param minimal_seq_list:  the sequence of pt to form a cycle
+        :param endnd: the geometric turning of the cycle
+        :return:
+        """
         o = None
         d = None
         seq_o2d = LinkedList()
@@ -1425,24 +1424,19 @@ class GraphBuilder:
         minimal_seq_list.pop()
         for nd in minimal_seq_list:
             if nd in endnd:
-                #   第一个遇到的是 O
                 if o is None:
                     o = nd
-                    #   避免minimal——Seq和之前endnd的顺序不一致
                     if nd != endnd[0]:
-                        #   应该是o的点但在endnd顺序中错位了
                         endnd[1] = endnd[0]
                         endnd[0] = o
                     continue
-                else:  # 永远是O先更新；then D更新，因此不用考虑endnd的顺序问题，直接赋值即可
+                else:
                     d = nd
-                    length = seq_d2o._length  # length是为了方便seq_d2o后置插入
+                    length = seq_d2o._length
                     continue
             if o is None and d is None:
-                #   在找到o之前前置插入
                 seq_d2o.insert(nd, 0)
             elif o is not None and d is None:
-                #   OD 之间，seqo2d正向插入
                 seq_o2d.append(nd)
             elif o is not None and d is not None:
                 if length == None:
@@ -1478,11 +1472,9 @@ class GraphBuilder:
         return l_dict, n_dict
 
     def straighten_links(self, pt_list):
-        #   首先保证初始点和终结点
         if len(pt_list) < 3:
             return pt_list
         pt_list = pt_list.copy()
-        # block = set()
         res_list = [pt_list[0]]
         idx = 1
         while idx < len(pt_list) - 1:
@@ -1500,7 +1492,6 @@ class GraphBuilder:
             if angle > 0:
                 res_list.append(current)
             idx = idx + 1
-        # pt_list = [j for i,j in enumerate(pt_list) if i not in block]
         res_list.append(pt_list[-1])
         return res_list
     #%%
@@ -1508,12 +1499,12 @@ class GraphBuilder:
         if endli is None:
             endli = set()
         if lid.__class__ == int:
-            li_list = list(self.links[lid])
+            li_list = list(self.link[lid])
             endli.add(lid)
         elif lid.__class__ == list:
             li_list = set()
             for i in lid:
-                li_list = li_list.union(self.links[i])
+                li_list = li_list.union(self.link[i])
                 endli.add(i)
         else:
             raise TypeError("Check input types: nid should be list and endpt should be set")
@@ -1568,20 +1559,20 @@ class GraphBuilder:
         return res_node, endpt, endlk
 
     def Link_between_Nodes(self, nd1, nd2, record=None, mode='shortest'):
-        '''
-        这个方法返回两个节点之间的link，但是存在两种情况，
-        1   存在复数link时：
-            1.2 mode 2：“shortest mode”：直接返回最小的link值
-            1.3 mode 3：“All mode”：返回全部相连线段
-        2   record中存储需要排除的情况
+        """
+        This method returns the link between two nodes, but there are two cases:,
+        When there are multiple links:
+            1.2 mode 2: "shortest mode": directly return the smallest link value
+            1.3 mode 3: "All mode": return all connected segments
+        The conditions to be excluded are stored in the record 2
         :param nd1:
         :param nd2:
-        :param record:需要排除的link id
-        :param mode: 默认返回最短的相连线段
-                1.1 mode 1：“updating”：直接将待合并的线段直接更新合并成同一线段
-                1.2 mode 2：“shortest”：直接返回最小的link值
-                1.3 mode 3：“all”：返回全部相连线段(return list)
-        '''
+        :param record: link id to be excluded
+        :param mode: return the shortest connected line segment by default
+                1.1 mode 1: "updating": directly update and merge the segments to be merged into the same segment
+                1.2 mode 2: "shortest": directly return the smallest link value
+                1.3 mode 3: "all": return all connected segments (return list)
+        """
         if record is None:
             record = set()
         inter_link_sets = self.node[nd1].intersection(self.node[nd2])
@@ -1605,7 +1596,7 @@ class GraphBuilder:
                 if shortest_link is not None:
                     record.add(shortest_link)
                     return shortest_link, record
-                else:  # 防御性语句
+                else:
                     raise Exception("Not Found Non-Duplication Path, All possible self.links has been recorded. "
                                     "And the problem self.node ids are {} and {}.the intersect self.links are {}"
                                     .format(nd1, nd2, record))
@@ -1620,7 +1611,7 @@ class GraphBuilder:
             return None, record
 
     def Link_to_Node(self, lid, nid, link_garph, block=None):
-        '''
+        """
         return another self.node id of current link
         :param lid:
         :param nid:
@@ -1628,7 +1619,7 @@ class GraphBuilder:
         :return: mode 'multi_pt': return the list of self.node ids and the string 'multi_pt'
                  mode 'pt': find only one nid and return it and the string 'pt'
                  mode 'end': cannot find any nid and return None and the string 'end'
-        '''
+        """
         if block is None:
             block = {nid}
         else:
@@ -1649,19 +1640,18 @@ class GraphBuilder:
             raise IndexError("input nid: {} not exist in self.node".format(nid))
         if self.node_storage[nid] is None:
             raise ValueError("{} self.node is none".format(nid))
-        #   优先更新geom本身
-        # oringin_node = self.node_storage[nid]
-        #   更新相连link的geom
+        #   update the nid geometry first
+        #   then update the links connected to this node
         for li in self.node[nid]:
             pt_list = Points_in_Line(self.link_storage[li])
-            #   检测新增的点应该是头还是尾
+            #   Detect whether the newly added point is the head or the tail
             if pt_list[0].distance(new_geom) < pt_list[-1].distance(new_geom):
-                #   应当加在头
+                #   at head
                 pt_list[0] = new_geom
             else:
-                #   应当加在尾
+                #   at tail
                 pt_list[-1] = new_geom
-            #   重新更新li的geom
+            #   update the geometry of li
             if len(pt_list) > 3:
                 pt_list = straighten_links(pt_list)
             self.link_storage[li] = LineString(pt_list)
@@ -1671,15 +1661,14 @@ class GraphBuilder:
         if replaced_set.__class__ is list:
             replaced_set = set(replaced_set)
 
-        #   提取出对应的link id,
         for replaced_id in replaced_set:
             if replaced_id not in self.node:
-                #   说明已经被更新过了
+                #   was updated before
                 continue
             link_set = self.node[replaced_id]
             for li_idx in link_set:
-                self.links[li_idx].remove(replaced_id)
-                self.links[li_idx].add(target_nid)
+                self.link[li_idx].remove(replaced_id)
+                self.link[li_idx].add(target_nid)
                 self.node[target_nid].add(li_idx)
             self.node.pop(replaced_id)
             self.node_storage[replaced_id] = None
@@ -1688,7 +1677,7 @@ class GraphBuilder:
             link_graph = sub_graph[1]
             for replaced_id in replaced_set:
                 if replaced_id not in node_graph:
-                    #   说明已经被更新过了
+                    #   was updated before
                     continue
                 link_set = node_graph[replaced_id]
                 for li_idx in link_set:
@@ -1711,20 +1700,20 @@ class GraphBuilder:
             real_idx = len(self.link_storage)
             newid.append(real_idx)
             self.link_storage.append(link_geometry)
-            #   更新link的拓扑信息
-            self.links[real_idx] = mapping_relations[tem_idx]
+            #   update connectivity of link
+            self.link[real_idx] = mapping_relations[tem_idx]
             node_set = mapping_relations[tem_idx]
-            #   更新节点拓扑信息
+            #   update connectivity of node
             for i in node_set:
                 if real_idx not in self.node[i]:
                     self.node[i].add(real_idx)
             if sub_graph is not None:
-                #   需要对子图信息进行更新
+                #   update connectivity of subgraph
                 sub_node = sub_graph[0]
                 sub_link = sub_graph[1]
-                #   更新子图link的拓扑信息
+                #   update connectivity of link in subgraph
                 sub_link[real_idx] = {i for i in node_set if i in sub_node}
-                #   更新子图node的拓扑信息
+                #   update connectivity of node in subgraph
                 for i in sub_link[real_idx]:
                     if real_idx not in sub_node[i]:
                         sub_node[i].add(real_idx)
@@ -1738,9 +1727,8 @@ class GraphBuilder:
         '''
 
         :param l_id_list:
-        :param sub_graph:   默认为None，非None时接收以长度为2的list形式的输入
-                            subgraph[0]表示从节点向链接的映射
-                            subgraph[1]表示从链接向节点饿映射
+        :param sub_graph:   subgraph[0] means nodes to links
+                            subgraph[1] means links to nodes
         :return:
         '''
         if l_id_list.__class__ is int:
@@ -1749,10 +1737,10 @@ class GraphBuilder:
             raise TypeError("plz check the the type of 'l_id_list'")
         del_relationships = dict()  # 保留被删除的links相关关系
         for li_id in l_id_list:
-            node_set = self.links[li_id]
+            node_set = self.link[li_id]
             del_relationships[li_id] = node_set
-            if li_id in self.links:
-                self.links.pop(li_id)
+            if li_id in self.link:
+                self.link.pop(li_id)
             for n_id in node_set:
                 self.node[n_id].discard(li_id)
             if sub_graph is not None:
@@ -1767,7 +1755,7 @@ class GraphBuilder:
         if sub_graph is None:
             return del_relationships
         else:
-            #   子图的拓扑信息更新
+            #   return the subgraphs
             return del_relationships, sub_node, sub_link
 
 #%%
@@ -1775,7 +1763,7 @@ class GraphBuilder:
         status_n = self.check_node_validation()
         status_l = self.check_link_validation()
         if status_l and status_n:
-            # 都通过了检测
+            # both link and node are all valid
             return
         else:
             self.check_graph_validation()
@@ -1784,26 +1772,26 @@ class GraphBuilder:
         for l_id in range(len(self.link_storage)):
             if self.link_storage[l_id] is None:
                 continue
-            if len(self.links[l_id]) == 0:
+            if len(self.link[l_id]) == 0:
                 self.link_storage[l_id] = None
-                self.links.pop(l_id)
-                status = 0  # 说明这次检查中有不合格的情况
+                self.link.pop(l_id)
+                status = 0  # there has invalid connectivity in this check
                 continue
             if self.link_storage[l_id].length == 0:
-                status = 0  # 说明这次检查中有不合格的情况
+                status = 0  # means there has invalid links in this check
                 self.link_storage[l_id] = None
-                keep_nid = self.links[l_id].pop()
-                for n_id in self.links[l_id]:
+                keep_nid = self.link[l_id].pop()
+                for n_id in self.link[l_id]:
                     self.node[keep_nid] = self.node[keep_nid].union(self.node[n_id])
                     for l in self.node[n_id]:
-                        self.links[l].discard(n_id)
-                        self.links[l].add(keep_nid)
+                        self.link[l].discard(n_id)
+                        self.link[l].add(keep_nid)
                     if n_id in self.node:
                         self.node.pop(n_id)
                         self.node_storage[n_id] = None
                 self.node[keep_nid].discard(l_id)
-                if l_id in self.links:
-                    self.links.pop(l_id)
+                if l_id in self.link:
+                    self.link.pop(l_id)
         return status
 
     def check_node_validation(self, status=1):
@@ -1811,11 +1799,10 @@ class GraphBuilder:
             if stg is None:
                 continue
             if len(self.node[n_idx]) < 2:
-                #   尽端点不存在
                 for i in self.node[n_idx]:
-                    self.links[i].discard(n_idx)
+                    self.link[i].discard(n_idx)
                 self.node_storage[n_idx] = None
                 self.node.pop(n_idx)
-                status = 0  # 说明这次检查中有不合格的情况
+                status = 0  # means nodes are all valid
         return status
 
