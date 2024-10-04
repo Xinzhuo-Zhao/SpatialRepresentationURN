@@ -26,7 +26,7 @@ class ListNode:
 class LinkedList:
     def __init__(self):
         self.head = None
-        self._length = 0  # 初始化长度计数器
+        self._length = 0
 
     def __iter__(self):
         self._current = self.head
@@ -48,7 +48,7 @@ class LinkedList:
             while current.next:
                 current = current.next
             current.next = ListNode(value)
-        self._length += 1  # 链表长度加1
+        self._length += 1
 
     def insert(self, value, position):
         if position < 0 or position > self._length:
@@ -65,7 +65,7 @@ class LinkedList:
                 position -= 1
             new_node.next = current.next
             current.next = new_node
-        self._length += 1  # 链表长度加1
+        self._length += 1
 
     def delete(self, value):
         current = self.head
@@ -73,12 +73,12 @@ class LinkedList:
         while current and current.value != value:
             prev = current
             current = current.next
-        if current:  # 找到了要删除的节点
+        if current: 
             if prev is None:
                 self.head = current.next
             else:
                 prev.next = current.next
-            self._length -= 1  # 链表长度减1
+            self._length -= 1 
 
     def find(self, value):
         current = self.head
